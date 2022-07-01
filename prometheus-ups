@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+
+# SPDX-FileComment: prometheus-finnix-mirrors
+# SPDX-FileCopyrightText: Copyright (C) 2021 Ryan Finnie
+# SPDX-License-Identifier: MPL-2.0
+
+import sys
+import prometheus_collectors.ups
+
+
+def module_init():
+    if __name__ == "__main__":
+        sys.exit(prometheus_collectors.ups.main(sys.argv))
+
+
+module_init()
