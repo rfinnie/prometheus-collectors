@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # SPDX-FileComment: prometheus-finnix-mirrors
 # SPDX-FileCopyrightText: Copyright (C) 2022 Ryan Finnie
 # SPDX-License-Identifier: MPL-2.0
