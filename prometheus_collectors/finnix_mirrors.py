@@ -5,7 +5,7 @@
 import sys
 
 import dateutil.parser
-from prometheus_client import Counter, Gauge
+from prometheus_client import Counter
 import requests
 
 from . import BaseMetrics
@@ -13,24 +13,6 @@ from . import BaseMetrics
 
 class Metrics(BaseMetrics):
     prefix = "finnix_mirrors"
-
-    def setup(self):
-        self.metrics = {}
-        label_names = ["mirror", "protocol"]
-
-        defs = [
-            ("collections_total", Counter, "Total collections processed"),
-            ("collection_time_seconds", Gauge, "Time mirror data was collected"),
-            ("last_check_time_seconds", Gauge, "Time mirror was last checked"),
-            ("last_success_time_seconds", Gauge, "Time mirror was last successful"),
-            ("last_trace_time_seconds", Gauge, "Time of mirror trace file"),
-            ("check_success", Gauge, "Whether the last check was a success"),
-        ]
-
-        for k, t, h in defs:
-            self.metrics[k] = t(
-                "{}_{}".format(self.prefix, k), h, label_names, registry=self.registry
-            )
 
     def collect_metrics(self):
         r = requests.get("https://mirrors.finnix.org/mirrors.json")
@@ -41,24 +23,36 @@ class Metrics(BaseMetrics):
                 self.collect_mirror_url(mirror, mirror_name, mirror_url, r)
 
     def collect_mirror_url(self, mirror, mirror_name, mirror_url, r):
-        labels = [mirror_name, mirror_url["protocol"]]
-        vals = [
+        labels = {"mirror": mirror_name, "protocol": mirror_url["protocol"]}
+        self.metric(
+            "collection_time_seconds", labels, "Time mirror data was collected"
+        ).set(dateutil.parser.parse(r.headers["Date"]).timestamp())
+        self.metric(
+            "check_success", labels, "Whether the last check was a success"
+        ).set(int(mirror_url["check_success"]))
+        for s, d, h in [
             (
-                "collection_time_seconds",
-                dateutil.parser.parse(r.headers["Date"]).timestamp(),
+                "date_last_check",
+                "last_check_time_seconds",
+                "Time mirror was last checked",
             ),
-            ("check_success", int(mirror_url["check_success"])),
-        ]
-        for s, d in [
-            ("date_last_check", "last_check_time_seconds"),
-            ("date_last_success", "last_success_time_seconds"),
-            ("date_last_trace", "last_trace_time_seconds"),
+            (
+                "date_last_success",
+                "last_success_time_seconds",
+                "Time mirror was last successful",
+            ),
+            ("date_last_trace", "last_trace_time_seconds", "Time of mirror trace file"),
         ]:
             if mirror_url.get(s):
-                vals.append((d, dateutil.parser.parse(mirror_url[s]).timestamp()))
-        for k, v in vals:
-            self.metrics[k].labels(*labels).set(v)
-        self.metrics["collections_total"].labels(*labels).inc()
+                self.metric(d, labels, h).set(
+                    dateutil.parser.parse(mirror_url[s]).timestamp()
+                )
+        self.metric(
+            "collections_total",
+            labels,
+            "Total collections processed",
+            data_type=Counter,
+        ).inc()
 
 
 def main(argv=None):

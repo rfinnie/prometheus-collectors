@@ -29,7 +29,6 @@ import time
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
-from prometheus_client import Gauge
 
 from . import BaseMetrics
 
@@ -39,39 +38,6 @@ class Metrics(BaseMetrics):
     needs_config = True
     full_check_complete = False
     spread_interval = 14400
-
-    def setup(self):
-        self.metrics = {}
-        self.metrics["retrieval_time_seconds"] = Gauge(
-            "{}_retrieval_time_seconds".format(self.prefix),
-            "Last certificate retrieval time, seconds since epoch",
-            ["server_hostname", "server_port"],
-            registry=self.registry,
-        )
-        self.metrics["retrieval_success_boolean"] = Gauge(
-            "{}_retrieval_success_boolean".format(self.prefix),
-            "1 for successful retrieval, 0 for failure",
-            ["server_hostname", "server_port"],
-            registry=self.registry,
-        )
-        self.metrics["not_before_seconds"] = Gauge(
-            "{}_not_before_seconds".format(self.prefix),
-            "Not Before time of certificate, seconds since epoch",
-            ["server_hostname", "server_port", "certificate_cn", "issuer_cn"],
-            registry=self.registry,
-        )
-        self.metrics["not_after_seconds"] = Gauge(
-            "{}_not_after_seconds".format(self.prefix),
-            "Not After time of certificate, seconds since epoch",
-            ["server_hostname", "server_port", "certificate_cn", "issuer_cn"],
-            registry=self.registry,
-        )
-        self.metrics["serial_number"] = Gauge(
-            "{}_serial_number".format(self.prefix),
-            "Serial number of certificate",
-            ["server_hostname", "server_port", "certificate_cn", "issuer_cn"],
-            registry=self.registry,
-        )
 
     def collect_metrics(self):
         if self.full_check_complete:
@@ -90,23 +56,42 @@ class Metrics(BaseMetrics):
             if "port" not in host:
                 host["port"] = 443
             port = host["port"]
+            base_labels = {"server_hostname": hostname, "server_port": str(port)}
             try:
                 res = self.check_host(host)
             except Exception:
                 logging.exception("Error on {}:{}".format(hostname, port))
-                self.metrics["retrieval_success_boolean"].labels(
-                    hostname, str(port)
+                self.metric(
+                    "retrieval_success_boolean",
+                    base_labels,
+                    "1 for successful retrieval, 0 for failure",
                 ).set(0)
                 continue
-            self.metrics["retrieval_time_seconds"].labels(hostname, str(port)).set(
-                float(time.time())
-            )
-            self.metrics["retrieval_success_boolean"].labels(hostname, str(port)).set(1)
-            labels = (hostname, str(port), res[3], res[4])
+            self.metric(
+                "retrieval_time_seconds",
+                base_labels,
+                "Last certificate retrieval time, seconds since epoch",
+            ).set(float(time.time()))
+            self.metric(
+                "retrieval_success_boolean",
+                base_labels,
+                "1 for successful retrieval, 0 for failure",
+            ).set(1)
+            labels = {**base_labels, "certificate_cn": res[3], "issuer_cn": res[4]}
 
-            self.metrics["serial_number"].labels(*labels).set(res[0])
-            self.metrics["not_before_seconds"].labels(*labels).set(res[1].timestamp())
-            self.metrics["not_after_seconds"].labels(*labels).set(res[2].timestamp())
+            self.metric("serial_number", labels, "Serial number of certificate").set(
+                res[0]
+            )
+            self.metric(
+                "not_before_seconds",
+                labels,
+                "Not Before time of certificate, seconds since epoch",
+            ).set(res[1].timestamp())
+            self.metric(
+                "not_after_seconds",
+                labels,
+                "Not After time of certificate, seconds since epoch",
+            ).set(res[2].timestamp())
 
         if not self.full_check_complete:
             self.full_check_complete = True
