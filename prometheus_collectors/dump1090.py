@@ -11,7 +11,7 @@
 import platform
 import sys
 
-from prometheus_client import Counter, Gauge
+from prometheus_client import Counter
 import requests
 
 from . import BaseMetrics
@@ -21,57 +21,9 @@ class Metrics(BaseMetrics):
     prefix = "dump1090"
 
     def setup(self):
-        self.metrics = {}
         # < 58 and < 60 mirrors the logic of the PiAware 5.0 JS UI
         self.seen_fresh_time = self.config.get("seen_fresh_time", 58)
         self.seen_pos_fresh_time = self.config.get("seen_pos_fresh_time", 60)
-        label_names = ["station"]
-
-        defs = [
-            ("reports_total", Counter, "Total reports received"),
-            ("station_time_seconds", Gauge, "Station collection time"),
-            ("messages_received", Gauge, "Number of raw messages received"),
-            (
-                "airborne_aircraft_total",
-                Gauge,
-                "Total number of current airborne aircraft seen",
-            ),
-            (
-                "airborne_aircraft_positions",
-                Gauge,
-                "Number of current airborne aircraft seen with positions",
-            ),
-            (
-                "airborne_aircraft_mlat",
-                Gauge,
-                "Number of current airborne aircraft seen with multilateration",
-            ),
-            (
-                "airborne_aircraft_tisb",
-                Gauge,
-                "Number of current airborne aircraft seen with TIS-B information",
-            ),
-            (
-                "airborne_aircraft_squawk",
-                Gauge,
-                "Number of current airborne aircraft seen squawking",
-            ),
-            (
-                "airborne_aircraft_ground",
-                Gauge,
-                "Number of current aircraft reported on ground",
-            ),
-            (
-                "airborne_aircraft_messages",
-                Gauge,
-                "Number of messages received by currently seen airborne aircraft",
-            ),
-        ]
-
-        for k, t, h in defs:
-            self.metrics[k] = t(
-                "{}_{}".format(self.prefix, k), h, label_names, registry=self.registry
-            )
 
         if "stations" not in self.config:
             self.config["stations"] = [
@@ -91,10 +43,14 @@ class Metrics(BaseMetrics):
         j = r.json()
         aircraft = [x for x in j["aircraft"] if x["seen"] < self.seen_fresh_time]
 
-        labels = [station["name"]]
+        labels = {"station": station["name"]}
         vals = [
-            ("messages_received", j["messages"]),
-            ("airborne_aircraft_total", len(aircraft)),
+            ("messages_received", j["messages"], "Number of raw messages received"),
+            (
+                "airborne_aircraft_total",
+                len(aircraft),
+                "Total number of current airborne aircraft seen",
+            ),
             (
                 "airborne_aircraft_positions",
                 len(
@@ -106,23 +62,40 @@ class Metrics(BaseMetrics):
                         and x["seen_pos"] < self.seen_pos_fresh_time
                     ]
                 ),
+                "Number of current airborne aircraft seen with positions",
             ),
-            ("airborne_aircraft_mlat", len([x for x in aircraft if x.get("mlat")])),
-            ("airborne_aircraft_tisb", len([x for x in aircraft if x.get("tisb")])),
-            ("airborne_aircraft_squawk", len([x for x in aircraft if x.get("squawk")])),
+            (
+                "airborne_aircraft_mlat",
+                len([x for x in aircraft if x.get("mlat")]),
+                "Number of current airborne aircraft seen with multilateration",
+            ),
+            (
+                "airborne_aircraft_tisb",
+                len([x for x in aircraft if x.get("tisb")]),
+                "Number of current airborne aircraft seen with TIS-B information",
+            ),
+            (
+                "airborne_aircraft_squawk",
+                len([x for x in aircraft if x.get("squawk")]),
+                "Number of current airborne aircraft seen squawking",
+            ),
             (
                 "airborne_aircraft_ground",
                 len([x for x in aircraft if x.get("alt_baro") == "ground"]),
+                "Number of current aircraft reported on ground",
             ),
             (
                 "airborne_aircraft_messages",
                 sum([x["messages"] for x in aircraft if "messages" in x]),
+                "Number of messages received by currently seen airborne aircraft",
             ),
-            ("station_time_seconds", j["now"]),
+            ("station_time_seconds", j["now"], "Station collection time"),
         ]
-        for k, v in vals:
-            self.metrics[k].labels(*labels).set(v)
-        self.metrics["reports_total"].labels(*labels).inc()
+        for k, v, h in vals:
+            self.metric(k, labels, h).set(v)
+        self.metric(
+            "reports_total", labels, "Total reports received", data_type=Counter
+        ).inc()
 
 
 def main(argv=None):
