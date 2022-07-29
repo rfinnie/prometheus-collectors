@@ -119,7 +119,6 @@ class BaseMetrics:
         self.interval = self.args.interval
         self.config = self.load_config()
         self.metrics = {}
-        self.metrics_labels = {}
         if self.args.http_daemon:
             self.registry = prometheus_client.REGISTRY
             self.collection_duration = prometheus_client.Summary(
@@ -181,17 +180,14 @@ class BaseMetrics:
 
     def metric(self, key, labels, help="No help", data_type=prometheus_client.Gauge):
         if key not in self.metrics:
-            self.metrics_labels[key] = sorted(labels.keys())
             self.metrics[key] = data_type(
                 "{}_{}".format(self.prefix, key),
                 help,
-                self.metrics_labels[key],
+                sorted(labels.keys()),
                 registry=self.registry,
             )
+        metric = self.metrics[key]
         label_values = []
-        for label_name in self.metrics_labels[key]:
-            if label_name in labels:
-                label_values.append(labels[label_name])
-            else:
-                label_values.append("")
-        return self.metrics[key].labels(*label_values)
+        for label_name in metric._labelnames:
+            label_values.append(str(labels.get(label_name, "")))
+        return metric.labels(*label_values)

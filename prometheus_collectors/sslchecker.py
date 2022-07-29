@@ -56,7 +56,7 @@ class Metrics(BaseMetrics):
             if "port" not in host:
                 host["port"] = 443
             port = host["port"]
-            base_labels = {"server_hostname": hostname, "server_port": str(port)}
+            base_labels = {"server_hostname": hostname, "server_port": port}
             try:
                 res = self.check_host(host)
             except Exception:
