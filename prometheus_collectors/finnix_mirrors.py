@@ -6,16 +6,16 @@ import sys
 
 import dateutil.parser
 from prometheus_client import Counter
-import requests
 
 from . import BaseMetrics
 
 
 class Metrics(BaseMetrics):
     prefix = "finnix_mirrors"
+    needs_requests = True
 
     def collect_metrics(self):
-        r = requests.get("https://mirrors.finnix.org/mirrors.json")
+        r = self.r_session.get("https://mirrors.finnix.org/mirrors.json")
         r.raise_for_status()
         j = r.json()
         for mirror_name, mirror in j["mirrors"].items():

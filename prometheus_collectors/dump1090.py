@@ -12,13 +12,13 @@ import platform
 import sys
 
 from prometheus_client import Counter
-import requests
 
 from . import BaseMetrics
 
 
 class Metrics(BaseMetrics):
     prefix = "dump1090"
+    needs_requests = True
 
     def setup(self):
         # < 58 and < 60 mirrors the logic of the PiAware 5.0 JS UI
@@ -38,7 +38,7 @@ class Metrics(BaseMetrics):
             self.collect_station(station)
 
     def collect_station(self, station):
-        r = requests.get(station["url"])
+        r = self.r_session.get(station["url"])
         r.raise_for_status()
         j = r.json()
         aircraft = [x for x in j["aircraft"] if x["seen"] < self.seen_fresh_time]

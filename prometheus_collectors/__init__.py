@@ -18,10 +18,12 @@ import yaml
 class BaseMetrics:
     prefix = "base"
     interval = 60
+    needs_config = False
+    needs_requests = False
+
     registry = None
     args = None
     config = None
-    needs_config = False
     collection_duration = None
     collection_errors = None
 
@@ -134,6 +136,13 @@ class BaseMetrics:
             )
         else:
             self.registry = prometheus_client.CollectorRegistry()
+
+        if self.needs_requests:
+            import requests
+
+            self.requests = requests
+            self.r_session = requests.Session()
+
         self.setup()
 
         if self.args.http_daemon:

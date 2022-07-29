@@ -4,13 +4,12 @@
 
 import sys
 
-import requests
-
 from . import BaseMetrics
 
 
 class Metrics(BaseMetrics):
     prefix = "sunpower"
+    needs_requests = True
 
     meter_defs = [
         ("net_ltea_3phsum_kwh", "Net cumulative energy across all three phases"),
@@ -60,7 +59,7 @@ class Metrics(BaseMetrics):
         self.api_timeout = self.config.get("api_timeout", 15)
 
     def collect_metrics(self):
-        r = requests.get(self.device_url, timeout=self.api_timeout)
+        r = self.r_session.get(self.device_url, timeout=self.api_timeout)
         r.raise_for_status()
         j = r.json()
 

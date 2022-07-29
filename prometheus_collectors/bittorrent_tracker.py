@@ -11,7 +11,6 @@
 import sys
 
 from prometheus_client import Gauge
-import requests
 
 from . import BaseMetrics
 
@@ -19,6 +18,7 @@ from . import BaseMetrics
 class Metrics(BaseMetrics):
     prefix = "bttrack"
     needs_config = True
+    needs_requests = True
 
     def setup(self):
         label_names = ["site"]
@@ -43,7 +43,7 @@ class Metrics(BaseMetrics):
             )
 
     def collect_site(self, site):
-        r = requests.get("{}/stats.json".format(site["url"]))
+        r = self.r_session.get("{}/stats.json".format(site["url"]))
         r.raise_for_status()
         j = r.json()
 

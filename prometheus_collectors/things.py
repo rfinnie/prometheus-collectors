@@ -15,7 +15,6 @@ import sys
 import dateutil.parser
 import dateutil.tz
 from prometheus_client import Counter, Gauge
-import requests
 
 from . import BaseMetrics
 
@@ -23,6 +22,7 @@ from . import BaseMetrics
 class Metrics(BaseMetrics):
     prefix = "things"
     needs_config = True
+    needs_requests = True
 
     def setup(self):
         label_names = ["hub", "id", "label", "manufacturer", "model", "name", "type"]
@@ -49,7 +49,7 @@ class Metrics(BaseMetrics):
             self.collect_hub(hub)
 
     def collect_hub(self, hub):
-        r = requests.get(
+        r = self.r_session.get(
             "{}/apps/api/4/devices/all?access_token={}".format(
                 hub["url"], hub["access_token"]
             )
