@@ -8,7 +8,6 @@
 # - name: example
 #   url: https://tracker.example.com
 
-import logging
 import sys
 
 from prometheus_client import Gauge
@@ -67,7 +66,7 @@ class Metrics(BaseMetrics):
             except KeyError:
                 pass
             except Exception:
-                logging.exception(
+                self.logger.exception(
                     "Encountered an attribute error for {}".format(site["name"])
                 )
                 pass

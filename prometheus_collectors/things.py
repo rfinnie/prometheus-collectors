@@ -10,7 +10,6 @@
 #   access_token: 2c24f2f8-5457-4f7d-be29-1778c28e3531
 #   temp_fahrenheit: true
 
-import logging
 import sys
 
 import dateutil.parser
@@ -91,7 +90,7 @@ class Metrics(BaseMetrics):
             try:
                 v = f(v)
             except Exception:
-                logging.exception(
+                self.logger.exception(
                     "Encountered an attribute error for {} ({})".format(
                         thing["label"], thing["id"]
                     )

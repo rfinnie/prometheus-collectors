@@ -8,7 +8,6 @@
 # port: 2947
 
 import json
-import logging
 import socket
 import sys
 import time
@@ -186,7 +185,7 @@ class Metrics(BaseMetrics):
             except Exception as e:
                 if not isinstance(e, ConnectionRefusedError):
                     # Silently ignore connection refused
-                    logging.exception("Error during gpsd connection")
+                    self.logger.exception("Error during gpsd connection")
                 self.collection_errors.inc()
                 self.sock.close()
                 self.sock = None
@@ -196,7 +195,7 @@ class Metrics(BaseMetrics):
                 with self.collection_duration.time():
                     self.process_message(data)
             except Exception:
-                logging.exception("Encountered an error during collection")
+                self.logger.exception("Encountered an error during collection")
                 self.collection_errors.inc()
 
 

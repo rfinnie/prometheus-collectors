@@ -20,7 +20,6 @@
 #   port: 64738
 
 import datetime
-import logging
 import random
 import socket
 import ssl
@@ -46,10 +45,10 @@ class Metrics(BaseMetrics):
             for host in self.config["hosts"]:
                 if random.random() < chance:
                     hosts.append(host)
-            logging.debug("Checking {} random host(s)".format(len(hosts)))
+            self.logger.debug("Checking {} random host(s)".format(len(hosts)))
         else:
             hosts = self.config["hosts"]
-            logging.debug("Doing full check of all hosts")
+            self.logger.debug("Doing full check of all hosts")
 
         for host in hosts:
             hostname = host["hostname"]
@@ -60,7 +59,7 @@ class Metrics(BaseMetrics):
             try:
                 res = self.check_host(host)
             except Exception:
-                logging.exception("Error on {}:{}".format(hostname, port))
+                self.logger.exception("Error on {}:{}".format(hostname, port))
                 self.metric(
                     "retrieval_success_boolean",
                     base_labels,
@@ -134,13 +133,13 @@ class Metrics(BaseMetrics):
         for attribute in cert.extensions:
             if attribute.oid == oid_san:
                 sans = sorted([x.value for x in attribute.value])
-        logging.debug(
+        self.logger.debug(
             "{}:{} ({}) expires in {}".format(
                 hostname, port, subject_cn, (cert.not_valid_after - now)
             )
         )
-        logging.debug("    Issuer: {}".format(issuer_cn))
-        logging.debug("    SANs: {}".format(sans))
+        self.logger.debug("    Issuer: {}".format(issuer_cn))
+        self.logger.debug("    SANs: {}".format(sans))
         return (
             cert.serial_number,
             cert.not_valid_before,

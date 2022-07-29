@@ -2,7 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (C) 2022 Ryan Finnie
 # SPDX-License-Identifier: MPL-2.0
 
-import logging
 import sys
 
 import requests
@@ -86,7 +85,7 @@ class Metrics(BaseMetrics):
                 except KeyError:
                     pass
                 except Exception:
-                    logging.exception(
+                    self.logger.exception(
                         "Encountered an attribute error for {}".format(device)
                     )
                     pass

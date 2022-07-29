@@ -115,6 +115,7 @@ class BaseMetrics:
     def main(self, argv=None):
         logging_level = logging.DEBUG if sys.stdin.isatty() else logging.INFO
         logging.basicConfig(level=logging_level)
+        self.logger = logging.getLogger(self.prefix)
         self.args = self.parse_args(argv)
         self.interval = self.args.interval
         self.config = self.load_config()
@@ -139,13 +140,15 @@ class BaseMetrics:
             prometheus_client.start_http_server(
                 self.args.http_port, registry=self.registry
             )
-            logging.info("HTTP server running on port {}".format(self.args.http_port))
+            self.logger.info(
+                "HTTP server running on port {}".format(self.args.http_port)
+            )
 
         self.main_loop()
 
     def main_loop(self):
         while True:
-            logging.debug("Beginning collection run")
+            self.logger.debug("Beginning collection run")
             try:
                 if self.collection_duration:
                     with self.collection_duration.time():
@@ -156,7 +159,7 @@ class BaseMetrics:
                 if self.args.write or self.args.dump:
                     raise
                 else:
-                    logging.exception("Encountered an error during collection")
+                    self.logger.exception("Encountered an error during collection")
                 if self.collection_errors:
                     self.collection_errors.inc()
 
@@ -175,7 +178,7 @@ class BaseMetrics:
                     self.interval * (1 - (self.args.interval_randomize / 100.0)),
                     self.interval * (1 + (self.args.interval_randomize / 100.0)),
                 )
-                logging.debug("Sleeping for {}".format(sleep))
+                self.logger.debug("Sleeping for {}".format(sleep))
                 time.sleep(sleep)
 
     def metric(self, key, labels, help="No help", data_type=prometheus_client.Gauge):
