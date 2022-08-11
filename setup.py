@@ -12,6 +12,7 @@ setup(
     packages=["prometheus_collectors"],
     entry_points={
         "console_scripts": [
+            "prometheus-ambientweather = prometheus_collectors.ambientweather:main",
             "prometheus-bittorrent-tracker = prometheus_collectors.bittorrent_tracker:main",
             "prometheus-dump1090 = prometheus_collectors.dump1090:main",
             "prometheus-finnix-mirrors = prometheus_collectors.finnix_mirrors:main",
