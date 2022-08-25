@@ -99,12 +99,13 @@ class Metrics(BaseMetrics):
 
             self.metrics[g].labels(*labels).set(v)
 
-        thing_date = dateutil.parser.parse(thing["date"])
-        if thing_date.tzinfo is None:
-            thing_date = thing_date.astimezone(dateutil.tz.tzlocal())
-        self.metrics["device_time_seconds"].labels(*labels).set(
-            float(thing_date.strftime("%s"))
-        )
+        if thing["date"]:
+            thing_date = dateutil.parser.parse(thing["date"])
+            if thing_date.tzinfo is None:
+                thing_date = thing_date.astimezone(dateutil.tz.tzlocal())
+            self.metrics["device_time_seconds"].labels(*labels).set(
+                float(thing_date.strftime("%s"))
+            )
         self.metrics["reports_total"].labels(*labels).inc()
 
 
