@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: Copyright (C) 2022 Ryan Finnie
 # SPDX-License-Identifier: MPL-2.0
 
+import datetime
 import sys
 
 from . import BaseMetrics
@@ -58,6 +59,11 @@ class Metrics(BaseMetrics):
         )
         self.api_timeout = self.config.get("api_timeout", 15)
 
+    def _parse_date(self, datestr):
+        return datetime.datetime.fromisoformat(
+            "{}-{}-{}T{}:{}:{}".format(*(datestr.split(",")[0:6]))
+        )
+
     def collect_metrics(self):
         r = self.r_session.get(self.device_url, timeout=self.api_timeout)
         r.raise_for_status()
@@ -78,6 +84,17 @@ class Metrics(BaseMetrics):
                 "pvs_serial": pvs_serial,
                 "serial": device["SERIAL"],
             }
+
+            if "CURTIME" in device and "DATATIME" in device:
+                delay = self._parse_date(device["CURTIME"]) - self._parse_date(
+                    device["DATATIME"]
+                )
+                self.metric(
+                    "{}_delay_seconds".format(device_prefix),
+                    labels,
+                    "Age of measured device data",
+                ).set(delay.total_seconds())
+
             for k, k_help in device_defs:
                 try:
                     v = float(device[k])
