@@ -52,6 +52,17 @@ class Metrics(BaseMetrics):
         ("t_htsnk_degc", "Heatsink temperature"),
         ("freq_hz", "Operating frequency"),
     ]
+    pvs_defs = [
+        ("dl_comm_err", "Communication errors"),
+        ("dl_cpu_load", "1-minute load average"),
+        ("dl_err_count", "Errors since last report"),
+        ("dl_flash_avail", "Flash available, KiB"),
+        ("dl_mem_used", "Memory used, KiB"),
+        ("dl_scan_time", "Unknown"),
+        ("dl_skipped_scans", "Unknown"),
+        ("dl_untransmitted", "Unknown"),
+        ("dl_uptime", "Uptime of unit, seconds"),
+    ]
 
     def setup(self):
         self.device_url = self.config.get(
@@ -78,6 +89,9 @@ class Metrics(BaseMetrics):
             elif device["DEVICE_TYPE"] == "Inverter":
                 device_prefix = "inverter"
                 device_defs = self.inverter_defs
+            elif device["DEVICE_TYPE"] == "PVS":
+                device_prefix = "pvs"
+                device_defs = self.pvs_defs
             else:
                 continue
             labels = {
