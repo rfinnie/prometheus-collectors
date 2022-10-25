@@ -99,7 +99,7 @@ class WSGIApplication:
         query_params = urllib.parse.parse_qs(environ.get("QUERY_STRING", ""))
         if (
             "PASSKEY" in query_params
-            or query_params["PASSKEY"][0] in self.collector.site_map
+            and query_params["PASSKEY"][0] in self.collector.site_map
         ):
             self.collector.parse_metrics(
                 {k: v[0] for k, v in query_params.items()},
