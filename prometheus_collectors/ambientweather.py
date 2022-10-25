@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 import sys
+import urllib.parse
 
 from . import BaseMetrics
 
@@ -41,27 +42,77 @@ class Metrics(BaseMetrics):
     }
 
     def setup(self):
-        self.api_url = self.config.get(
-            "api_url",
-            "https://rt.ambientweather.net/v1/devices?applicationKey={application_key}&apiKey={api_key}",
-        ).format(
-            application_key=self.config["application_key"],
-            api_key=self.config["api_key"],
-        )
-        self.api_timeout = self.config.get("api_timeout", 15)
+        self.data_mode = self.config.get("data_mode", "api")
+        if self.data_mode == "api":
+            self.api_url = self.config.get(
+                "api_url",
+                "https://rt.ambientweather.net/v1/devices?applicationKey={application_key}&apiKey={api_key}",
+            ).format(
+                application_key=self.config["application_key"],
+                api_key=self.config["api_key"],
+            )
+            self.api_timeout = self.config.get("api_timeout", 15)
+        elif self.data_mode == "receiver":
+            if not self.args.http_daemon:
+                raise RuntimeError("Only --http-daemon is supported for receiver mode")
+
+            from wsgiref.simple_server import make_server
+
+            self.site_map = {
+                x["passkey"]: x["site"] for x in self.config.get("site_map", [])
+            }
+            application = WSGIApplication(self)
+            self.wsgi_server = make_server(
+                "0.0.0.0", self.config.get("data_port", 8000), application
+            )
+        else:
+            raise RuntimeError("Unknown data_mode")
 
     def collect_metrics(self):
         r = self.r_session.get(self.api_url, timeout=self.api_timeout)
         r.raise_for_status()
         for site in r.json():
-            for k, v in site["lastData"].items():
-                if k not in self.sensor_map:
-                    continue
-                labels = {
-                    "site": site["info"]["name"],
-                    "sensor": self.sensor_map[k][1],
-                }
-                self.metric(self.sensor_map[k][0], labels).set(v)
+            self.parse_metrics(site["lastData"], site["info"]["name"])
+
+    def parse_metrics(self, data, site_name):
+        for k, v in data.items():
+            if k not in self.sensor_map:
+                continue
+            labels = {
+                "site": site_name,
+                "sensor": self.sensor_map[k][1],
+            }
+            self.metric(self.sensor_map[k][0], labels).set(v)
+
+    def main_loop(self):
+        if self.data_mode == "api":
+            return super(Metrics, self).main_loop()
+        elif self.data_mode == "receiver":
+            return self.wsgi_server.serve_forever()
+
+
+class WSGIApplication:
+    def __init__(self, collector):
+        self.collector = collector
+
+    def __call__(self, environ, start_response):
+        query_params = urllib.parse.parse_qs(environ.get("QUERY_STRING", ""))
+        if (
+            "PASSKEY" in query_params
+            or query_params["PASSKEY"][0] in self.collector.site_map
+        ):
+            self.collector.parse_metrics(
+                {k: v[0] for k, v in query_params.items()},
+                self.collector.site_map[query_params["PASSKEY"][0]],
+            )
+        start_response(
+            "200 OK",
+            [
+                ("Content-Type", "text/plain; charset=UTF-8"),
+                ("Content-Length", "3"),
+            ],
+        )
+        return [b"ok\n"]
 
 
 def main(argv=None):
