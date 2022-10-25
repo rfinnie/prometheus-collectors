@@ -1,4 +1,4 @@
-# SPDX-FileComment: prometheus-ambientweather - ambientweather PVS5/PVS6
+# SPDX-FileComment: prometheus-ambientweather - Ambient Weather
 # SPDX-FileCopyrightText: Copyright (C) 2022 Ryan Finnie
 # SPDX-License-Identifier: MPL-2.0
 
