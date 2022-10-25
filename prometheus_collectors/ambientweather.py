@@ -59,7 +59,7 @@ class Metrics(BaseMetrics):
             from wsgiref.simple_server import make_server
 
             self.site_map = {
-                x["passkey"]: x["site"] for x in self.config.get("site_map", [])
+                x["mac"].lower(): x["site"] for x in self.config.get("site_map", [])
             }
             application = WSGIApplication(self)
             self.wsgi_server = make_server(
@@ -97,13 +97,15 @@ class WSGIApplication:
 
     def __call__(self, environ, start_response):
         query_params = urllib.parse.parse_qs(environ.get("QUERY_STRING", ""))
-        if (
-            "PASSKEY" in query_params
-            and query_params["PASSKEY"][0] in self.collector.site_map
-        ):
+        mac = None
+        if query_params.get("PASSKEY", []):
+            mac = query_params["PASSKEY"][0]
+        elif query_params.get("MAC", []):
+            mac = query_params["MAC"][0]
+        if mac:
             self.collector.parse_metrics(
                 {k: v[0] for k, v in query_params.items()},
-                self.collector.site_map[query_params["PASSKEY"][0]],
+                self.collector.site_map[mac.lower()],
             )
         start_response(
             "200 OK",
