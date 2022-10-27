@@ -2,6 +2,40 @@
 # SPDX-FileCopyrightText: Copyright (C) 2022 Ryan Finnie
 # SPDX-License-Identifier: MPL-2.0
 
+# Default mode is to poll from ambientweather.net.  Create a set of API
+# keys at https://ambientweather.net/account and then add them to the
+# config:
+#
+#     data_mode: api
+#     application_key: 1234aaaa1234aaaa1234aaaa1234aaaa1234aaaa1234aaaa1234aaaa1234aaaa
+#     api_key: 5678bbbb5678bbbb5678bbbb5678bbbb5678bbbb5678bbbb5678bbbb5678bbbb
+#
+# Data will be sorted by site, as specified by the API output.
+#
+# Alternatively, The WS-2000 (and probably others) can be set to post
+# directly to an arbitrary URL, and the collector can be set up to
+# receive that.  On the control unit, go to Settings, Weather Server,
+# Customized Setup:
+#
+#     State: Enable
+#     Protocol Type: Same As AMBWeather
+#     IP/Hostname: [collector address]
+#     Port: 8000
+#     Interval: 16 Second [lowest]
+#     Path: /data/report/?
+#
+# Note the path must have a trailing "?", but can otherwise be any path.
+# And the corresponding config:
+#
+#     data_mode: receiver
+#     data_port: 8000
+#     site_map:
+#       - mac: "98:cd:ac:aa:bb:cc"
+#         site: My Site
+#
+# Site name is mapped to a specified corresponding mac given by the
+# control unit.
+
 import sys
 import urllib.parse
 
