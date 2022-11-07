@@ -37,6 +37,7 @@
 # control unit.
 
 import sys
+import time
 import urllib.parse
 
 from . import BaseMetrics
@@ -137,9 +138,13 @@ class WSGIApplication:
         elif query_params.get("MAC", []):
             mac = query_params["MAC"][0]
         if mac:
+            site_name = self.collector.site_map[mac.lower()]
             self.collector.parse_metrics(
                 {k: v[0] for k, v in query_params.items()},
-                self.collector.site_map[mac.lower()],
+                site_name,
+            )
+            self.collector.metric("collection_time", {"site": site_name}).set(
+                time.time()
             )
         start_response(
             "200 OK",
