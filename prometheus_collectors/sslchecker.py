@@ -50,6 +50,7 @@ class Metrics(BaseMetrics):
             hosts = self.config["hosts"]
             self.logger.debug("Doing full check of all hosts")
 
+        skip_labels = self.config.get("skip_labels", [])
         for host in hosts:
             hostname = host["hostname"]
             if "port" not in host:
@@ -76,7 +77,11 @@ class Metrics(BaseMetrics):
                 base_labels,
                 "1 for successful retrieval, 0 for failure",
             ).set(1)
-            labels = {**base_labels, "certificate_cn": res[3], "issuer_cn": res[4]}
+
+            labels = {**base_labels}
+            for k, v in {"certificate_cn": res[3], "issuer_cn": res[4]}.items():
+                if k not in skip_labels:
+                    labels[k] = v
 
             self.metric("serial_number", labels, "Serial number of certificate").set(
                 res[0]
