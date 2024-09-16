@@ -128,7 +128,7 @@ class Metrics(BaseMetrics):
             fullname = m_name
             if m_suffix:
                 fullname = "{}_{}".format(fullname, m_suffix)
-            out[k] = v
+            out[k] = float(v)
 
         labels = {"model": kv["MODEL"], "name": kv["UPSNAME"], "serial": kv["SERIALNO"]}
         for k, v in out.items():

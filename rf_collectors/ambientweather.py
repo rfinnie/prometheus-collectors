@@ -122,7 +122,7 @@ class Metrics(BaseMetrics):
                 "site": site_name,
                 "sensor": self.sensor_map[k][1],
             }
-            self.instruments[self.sensor_map[k][0]].set(v, labels)
+            self.instruments[self.sensor_map[k][0]].set(float(v), labels)
 
     def main_loop(self):
         if self.data_mode == "api":
