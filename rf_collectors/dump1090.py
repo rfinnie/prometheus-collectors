@@ -31,7 +31,13 @@ class Metrics(BaseMetrics):
                 }
             ]
 
-        self.create_instrument("counter", "reports", description="Total reports received")
+        for station in self.config["stations"]:
+            if not isinstance(station["url"], (list, tuple, set)):
+                station["url"] = [station["url"]]
+
+        self.create_instrument(
+            "counter", "reports", description="Total reports received"
+        )
         vals = [
             ("messages.received", "Number of raw messages received"),
             (
@@ -49,6 +55,10 @@ class Metrics(BaseMetrics):
             (
                 "airborne.aircraft.tisb",
                 "Number of current airborne aircraft seen with TIS-B information",
+            ),
+            (
+                "airborne.aircraft.uat",
+                "Number of current airborne aircraft seen via UAT",
             ),
             (
                 "airborne.aircraft.squawk",
@@ -72,14 +82,22 @@ class Metrics(BaseMetrics):
             self.collect_station(station)
 
     def collect_station(self, station):
-        r = self.r_session.get(station["url"])
-        r.raise_for_status()
-        j = r.json()
-        aircraft = [x for x in j["aircraft"] if x["seen"] < self.seen_fresh_time]
+        aircraft = []
+        messages = 0
+        station_time = 0
+        for url in station["url"]:
+            r = self.r_session.get(url)
+            r.raise_for_status()
+            j = r.json()
+            messages += j["messages"]
+            aircraft.extend(
+                [x for x in j["aircraft"] if x["seen"] < self.seen_fresh_time]
+            )
+            station_time = j["now"]
 
         labels = {"station": station["name"]}
         vals = [
-            ("messages.received", j["messages"]),
+            ("messages.received", messages),
             (
                 "airborne.aircraft.total",
                 len(aircraft),
@@ -105,6 +123,10 @@ class Metrics(BaseMetrics):
                 len([x for x in aircraft if x.get("tisb")]),
             ),
             (
+                "airborne.aircraft.uat",
+                len([x for x in aircraft if x.get("uat_version")]),
+            ),
+            (
                 "airborne.aircraft.squawk",
                 len([x for x in aircraft if x.get("squawk")]),
             ),
@@ -116,7 +138,7 @@ class Metrics(BaseMetrics):
                 "airborne.aircraft.messages",
                 sum([x["messages"] for x in aircraft if "messages" in x]),
             ),
-            ("station.time.seconds", j["now"]),
+            ("station.time.seconds", station_time),
         ]
         for k, v in vals:
             self.instruments[k].set(v, labels)
