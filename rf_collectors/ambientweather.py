@@ -1,4 +1,4 @@
-# SPDX-FileComment: prometheus-ambientweather - Ambient Weather
+# SPDX-FileComment: ambientweather-collector - Ambient Weather
 # SPDX-FileCopyrightText: Copyright (C) 2022 Ryan Finnie
 # SPDX-License-Identifier: MPL-2.0
 
@@ -49,34 +49,42 @@ class Metrics(BaseMetrics):
     needs_requests = True
 
     sensor_map = {
-        "baromabsin": ("barometer_absolute_in", "outdoor"),
-        "baromrelin": ("barometer_relative_in", "outdoor"),
-        "dailyrainin": ("daily_rain_in", "outdoor"),
-        "dewPoint": ("dew_point_f", "outdoor"),
-        "dewPointin": ("dew_point_f", "indoor"),
-        "eventrainin": ("event_rain_in", "outdoor"),
-        "feelsLike": ("feels_like_f", "outdoor"),
-        "feelsLikein": ("feels_like_f", "indoor"),
-        "hourlyrainin": ("hourly_rain_in", "outdoor"),
-        "humidity": ("humidity_percent", "outdoor"),
-        "humidityin": ("humidity_percent", "indoor"),
-        "maxdailygust": ("max_daily_gust_mph", "outdoor"),
-        "monthlyrainin": ("monthly_rain_in", "outdoor"),
-        "solarradiation": ("solar_radiation_wm2", "outdoor"),
-        "temp1f": ("temperature_f", "pool"),
-        "tempf": ("temperature_f", "outdoor"),
-        "tempinf": ("temperature_f", "indoor"),
-        "uv": ("uv_index", "outdoor"),
-        "weeklyrainin": ("weekly_rain_in", "outdoor"),
-        "winddir": ("wind_direction", "outdoor"),
-        "winddir_avg10m": ("wind_direction_avg10m", "outdoor"),
-        "windgustmph": ("wind_gust_mph", "outdoor"),
-        "windspdmph_avg10m": ("wind_speed_avg10m_mph", "outdoor"),
-        "windspeedmph": ("wind_speed_mph", "outdoor"),
-        "yearlyrainin": ("yearly_rain_in", "outdoor"),
+        "baromabsin": ("barometer.absolute.in", "outdoor"),
+        "baromrelin": ("barometer.relative.in", "outdoor"),
+        "dailyrainin": ("daily.rain.in", "outdoor"),
+        "dewPoint": ("dew.point.f", "outdoor"),
+        "dewPointin": ("dew.point.f", "indoor"),
+        "eventrainin": ("event.rain.in", "outdoor"),
+        "feelsLike": ("feels.like.f", "outdoor"),
+        "feelsLikein": ("feels.like.f", "indoor"),
+        "hourlyrainin": ("hourly.rain.in", "outdoor"),
+        "humidity": ("humidity.percent", "outdoor"),
+        "humidityin": ("humidity.percent", "indoor"),
+        "maxdailygust": ("max.daily.gust.mph", "outdoor"),
+        "monthlyrainin": ("monthly.rain.in", "outdoor"),
+        "solarradiation": ("solar.radiation.wm2", "outdoor"),
+        "temp1f": ("temperature.f", "pool"),
+        "tempf": ("temperature.f", "outdoor"),
+        "tempinf": ("temperature.f", "indoor"),
+        "uv": ("uv.index", "outdoor"),
+        "weeklyrainin": ("weekly.rain.in", "outdoor"),
+        "winddir": ("wind.direction", "outdoor"),
+        "winddir.avg10m": ("wind.direction.avg10m", "outdoor"),
+        "windgustmph": ("wind.gust.mph", "outdoor"),
+        "windspdmph.avg10m": ("wind.speed.avg10m.mph", "outdoor"),
+        "windspeedmph": ("wind.speed.mph", "outdoor"),
+        "yearlyrainin": ("yearly.rain.in", "outdoor"),
     }
 
+    def pre_setup(self):
+        if self.config.get("data_mode", "api") == "receiver":
+            self.needs_periodic_export = True
+
     def setup(self):
+        for k in {x[0] for x in self.sensor_map.values()}:
+            self.create_instrument("gauge", k)
+        self.create_instrument("gauge", "collection.time")
+
         self.data_mode = self.config.get("data_mode", "api")
         if self.data_mode == "api":
             self.api_url = self.config.get(
@@ -88,9 +96,6 @@ class Metrics(BaseMetrics):
             )
             self.api_timeout = self.config.get("api_timeout", 15)
         elif self.data_mode == "receiver":
-            if not self.args.http_daemon:
-                raise RuntimeError("Only --http-daemon is supported for receiver mode")
-
             from wsgiref.simple_server import make_server
 
             self.site_map = {
@@ -117,7 +122,7 @@ class Metrics(BaseMetrics):
                 "site": site_name,
                 "sensor": self.sensor_map[k][1],
             }
-            self.metric(self.sensor_map[k][0], labels).set(v)
+            self.instruments[self.sensor_map[k][0]].set(v, labels)
 
     def main_loop(self):
         if self.data_mode == "api":
@@ -143,8 +148,8 @@ class WSGIApplication:
                 {k: v[0] for k, v in query_params.items()},
                 site_name,
             )
-            self.collector.metric("collection_time", {"site": site_name}).set(
-                time.time()
+            self.collector.instruments["collection.time"].set(
+                time.time(), {"site": site_name}
             )
         start_response(
             "200 OK",

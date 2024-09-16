@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
-# SPDX-FileComment: prometheus-dump1090
+# SPDX-FileComment: ups-collector
 # SPDX-FileCopyrightText: Copyright (C) 2021 Ryan Finnie
 # SPDX-License-Identifier: MPL-2.0
 
 import sys
-import prometheus_collectors.dump1090
+import rf_collectors.ups
 
 
 def module_init():
     if __name__ == "__main__":
-        sys.exit(prometheus_collectors.dump1090.main(sys.argv))
+        sys.exit(rf_collectors.ups.main(sys.argv))
 
 
 module_init()

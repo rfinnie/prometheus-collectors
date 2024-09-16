@@ -1,4 +1,4 @@
-# SPDX-FileComment: prometheus-dump1090
+# SPDX-FileComment: dump1090-collector
 # SPDX-FileCopyrightText: Copyright (C) 2021 Ryan Finnie
 # SPDX-License-Identifier: MPL-2.0
 
@@ -10,8 +10,6 @@
 
 import platform
 import sys
-
-from prometheus_client import Counter
 
 from . import BaseMetrics
 
@@ -33,6 +31,42 @@ class Metrics(BaseMetrics):
                 }
             ]
 
+        self.create_instrument("counter", "reports", description="Total reports received")
+        vals = [
+            ("messages.received", "Number of raw messages received"),
+            (
+                "airborne.aircraft.total",
+                "Total number of current airborne aircraft seen",
+            ),
+            (
+                "airborne.aircraft.positions",
+                "Number of current airborne aircraft seen with positions",
+            ),
+            (
+                "airborne.aircraft.mlat",
+                "Number of current airborne aircraft seen with multilateration",
+            ),
+            (
+                "airborne.aircraft.tisb",
+                "Number of current airborne aircraft seen with TIS-B information",
+            ),
+            (
+                "airborne.aircraft.squawk",
+                "Number of current airborne aircraft seen squawking",
+            ),
+            (
+                "airborne.aircraft.ground",
+                "Number of current aircraft reported on ground",
+            ),
+            (
+                "airborne.aircraft.messages",
+                "Number of messages received by currently seen airborne aircraft",
+            ),
+            ("station.time.seconds", "Station collection time"),
+        ]
+        for k, h in vals:
+            self.create_instrument("gauge", k, description=h)
+
     def collect_metrics(self):
         for station in self.config["stations"]:
             self.collect_station(station)
@@ -45,14 +79,13 @@ class Metrics(BaseMetrics):
 
         labels = {"station": station["name"]}
         vals = [
-            ("messages_received", j["messages"], "Number of raw messages received"),
+            ("messages.received", j["messages"]),
             (
-                "airborne_aircraft_total",
+                "airborne.aircraft.total",
                 len(aircraft),
-                "Total number of current airborne aircraft seen",
             ),
             (
-                "airborne_aircraft_positions",
+                "airborne.aircraft.positions",
                 len(
                     [
                         x
@@ -62,40 +95,32 @@ class Metrics(BaseMetrics):
                         and x["seen_pos"] < self.seen_pos_fresh_time
                     ]
                 ),
-                "Number of current airborne aircraft seen with positions",
             ),
             (
-                "airborne_aircraft_mlat",
+                "airborne.aircraft.mlat",
                 len([x for x in aircraft if x.get("mlat")]),
-                "Number of current airborne aircraft seen with multilateration",
             ),
             (
-                "airborne_aircraft_tisb",
+                "airborne.aircraft.tisb",
                 len([x for x in aircraft if x.get("tisb")]),
-                "Number of current airborne aircraft seen with TIS-B information",
             ),
             (
-                "airborne_aircraft_squawk",
+                "airborne.aircraft.squawk",
                 len([x for x in aircraft if x.get("squawk")]),
-                "Number of current airborne aircraft seen squawking",
             ),
             (
-                "airborne_aircraft_ground",
+                "airborne.aircraft.ground",
                 len([x for x in aircraft if x.get("alt_baro") == "ground"]),
-                "Number of current aircraft reported on ground",
             ),
             (
-                "airborne_aircraft_messages",
+                "airborne.aircraft.messages",
                 sum([x["messages"] for x in aircraft if "messages" in x]),
-                "Number of messages received by currently seen airborne aircraft",
             ),
-            ("station_time_seconds", j["now"], "Station collection time"),
+            ("station.time.seconds", j["now"]),
         ]
-        for k, v, h in vals:
-            self.metric(k, labels, h).set(v)
-        self.metric(
-            "reports_total", labels, "Total reports received", data_type=Counter
-        ).inc()
+        for k, v in vals:
+            self.instruments[k].set(v, labels)
+        self.instruments["reports"].add(1, labels)
 
 
 def main(argv=None):

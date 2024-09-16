@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
-# SPDX-FileComment: prometheus-ambientweather
+# SPDX-FileComment: finnix-collector-mirrors
 # SPDX-FileCopyrightText: Copyright (C) 2022 Ryan Finnie
 # SPDX-License-Identifier: MPL-2.0
 
 import sys
-import prometheus_collectors.ambientweather
+import rf_collectors.finnix_mirrors
 
 
 def module_init():
     if __name__ == "__main__":
-        sys.exit(prometheus_collectors.ambientweather.main(sys.argv))
+        sys.exit(rf_collectors.finnix_mirrors.main(sys.argv))
 
 
 module_init()

@@ -1,4 +1,4 @@
-# SPDX-FileComment: prometheus-sunpower - SunPower PVS5/PVS6
+# SPDX-FileComment: sunpower-collector - SunPower PVS5/PVS6
 # SPDX-FileCopyrightText: Copyright (C) 2022 Ryan Finnie
 # SPDX-License-Identifier: MPL-2.0
 
@@ -70,6 +70,24 @@ class Metrics(BaseMetrics):
         )
         self.api_timeout = self.config.get("api_timeout", 15)
 
+        for device_prefix, defs in (
+            ("meter", self.meter_defs),
+            ("inverter", self.inverter_defs),
+            ("pvs", self.pvs_defs),
+        ):
+            for k, help in defs:
+                k_otel = k.replace("_", ".")
+                full_name = "{}.{}".format(device_prefix, k_otel)
+                self.create_instrument("gauge", full_name, description=help)
+
+            full_name = "{}.delay".format(device_prefix)
+            self.create_instrument(
+                "gauge",
+                full_name,
+                unit="seconds",
+                description="Age of measured device data",
+            )
+
     def _parse_date(self, datestr):
         return datetime.datetime.fromisoformat(
             "{}-{}-{}T{}:{}:{}".format(*(datestr.split(",")[0:6]))
@@ -103,11 +121,9 @@ class Metrics(BaseMetrics):
                 delay = self._parse_date(device["CURTIME"]) - self._parse_date(
                     device["DATATIME"]
                 )
-                self.metric(
-                    "{}_delay_seconds".format(device_prefix),
-                    labels,
-                    "Age of measured device data",
-                ).set(delay.total_seconds())
+                self.instruments["{}.delay".format(device_prefix)].set(
+                    delay.total_seconds(), labels
+                )
 
             for k, k_help in device_defs:
                 try:
@@ -120,7 +136,10 @@ class Metrics(BaseMetrics):
                     )
                     pass
                 else:
-                    self.metric("{}_{}".format(device_prefix, k), labels, k_help).set(v)
+                    k_otel = k.replace("_", ".")
+                    self.instruments["{}.{}".format(device_prefix, k_otel)].set(
+                        v, labels
+                    )
 
 
 def main(argv=None):

@@ -1,4 +1,4 @@
-# SPDX-FileComment: prometheus-things
+# SPDX-FileComment: things-collector
 # SPDX-FileCopyrightText: Copyright (C) 2021 Ryan Finnie
 # SPDX-License-Identifier: MPL-2.0
 
@@ -14,7 +14,6 @@ import sys
 
 import dateutil.parser
 import dateutil.tz
-from prometheus_client import Counter, Gauge
 
 from . import BaseMetrics
 
@@ -25,24 +24,19 @@ class Metrics(BaseMetrics):
     needs_requests = True
 
     def setup(self):
-        label_names = ["hub", "id", "label", "manufacturer", "model", "name", "type"]
-        self.metrics = {}
-
         defs = [
-            ("reports_total", Counter, "Total reports received"),
-            ("device_time_seconds", Gauge, "Thing device check-in time"),
-            ("temperature_degrees_celsius", Gauge, "Thing temperature"),
-            ("battery_percent", Gauge, "Thing battery"),
-            ("illuminance_lux", Gauge, "Thing illuminance"),
-            ("humidity_percent", Gauge, "Thing humidity"),
-            ("switch_on", Gauge, "1 if the switch is on"),
-            ("light_level_percent", Gauge, "Light level percent"),
+            ("reports", "counter", "Total reports received"),
+            ("device.time.seconds", "gauge", "Thing device check-in time"),
+            ("temperature.degrees.celsius", "gauge", "Thing temperature"),
+            ("battery.percent", "gauge", "Thing battery"),
+            ("illuminance.lux", "gauge", "Thing illuminance"),
+            ("humidity.percent", "gauge", "Thing humidity"),
+            ("switch.on", "gauge", "1 if the switch is on"),
+            ("light.level.percent", "gauge", "Light level percent"),
         ]
 
         for k, t, h in defs:
-            self.metrics[k] = t(
-                "{}_{}".format(self.prefix, k), h, label_names, registry=self.registry
-            )
+            self.create_instrument(t, k, description=h)
 
     def collect_metrics(self):
         for hub in self.config["hubs"]:
@@ -67,22 +61,21 @@ class Metrics(BaseMetrics):
         # We'll always coax it into C.
         is_f = hub.get("temp_fahrenheit", False)
 
-        labels = [hub["name"]] + [
-            (thing[name] if thing[name] is not None else "")
-            for name in ("id", "label", "manufacturer", "model", "name", "type")
-        ]
+        labels = {"hub": hub["name"]}
+        for name in ("id", "label", "manufacturer", "model", "name", "type"):
+            labels[name] = thing[name] if thing[name] is not None else ""
 
         for g, k, f in [
             (
-                "temperature_degrees_celsius",
+                "temperature.degrees.celsius",
                 "temperature",
                 lambda x: ((float(x) - 32) / 1.8) if is_f else float(x),
             ),
-            ("battery_percent", "battery", float),
-            ("illuminance_lux", "illuminance", float),
-            ("humidity_percent", "humidity", float),
-            ("switch_on", "switch", lambda x: 1 if x == "on" else 0),
-            ("light_level_percent", "level", float),
+            ("battery.percent", "battery", float),
+            ("illuminance.lux", "illuminance", float),
+            ("humidity.percent", "humidity", float),
+            ("switch.on", "switch", lambda x: 1 if x == "on" else 0),
+            ("light.level.percent", "level", float),
         ]:
             v = thing["attributes"].get(k)
             if v is None:
@@ -97,16 +90,16 @@ class Metrics(BaseMetrics):
                 )
                 continue
 
-            self.metrics[g].labels(*labels).set(v)
+            self.instruments[g].set(v, labels)
 
         if thing["date"]:
             thing_date = dateutil.parser.parse(thing["date"])
             if thing_date.tzinfo is None:
                 thing_date = thing_date.astimezone(dateutil.tz.tzlocal())
-            self.metrics["device_time_seconds"].labels(*labels).set(
-                float(thing_date.strftime("%s"))
+            self.instruments["device.time.seconds"].set(
+                float(thing_date.strftime("%s")), labels
             )
-        self.metrics["reports_total"].labels(*labels).inc()
+        self.instruments["reports"].add(1, labels)
 
 
 def main(argv=None):

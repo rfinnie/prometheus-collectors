@@ -1,4 +1,4 @@
-# SPDX-FileComment: prometheus-gps
+# SPDX-FileComment: gps-collector
 # SPDX-FileCopyrightText: Copyright (C) 2021 Ryan Finnie
 # SPDX-License-Identifier: MPL-2.0
 
@@ -13,13 +13,13 @@ import sys
 import time
 
 import dateutil.parser
-from prometheus_client import Counter
 
 from . import BaseMetrics
 
 
 class Metrics(BaseMetrics):
     prefix = "gps"
+    needs_periodic_export = True
     gpsd_host = "127.0.0.1"
     gpsd_port = 2947
     sock = None
@@ -31,95 +31,103 @@ class Metrics(BaseMetrics):
         self.metrics_defs = {
             "PPS": {
                 "_clock": (
-                    "pps_clock_seconds",
+                    "pps.clock.seconds",
                     "System wall clock, seconds since epoch",
                 ),
-                "_real": ("pps_real_seconds", "PPS source clock, seconds since epoch"),
+                "_real": ("pps.real.seconds", "PPS source clock, seconds since epoch"),
                 "precision": (
-                    "pps_precision_gps",
+                    "pps.precision.gps",
                     "NTP style estimate of PPS precision",
                 ),
             },
             "SKY": {
                 "_unused_satellites": (
-                    "sky_unused_satellites",
+                    "sky.unused.satellites",
                     "Satellites currently not being used",
                 ),
                 "_used_satellites": (
-                    "sky_used_satellites",
+                    "sky.used.satellites",
                     "Satellites currently being used",
                 ),
                 "gdop": (
-                    "sky_geometric_dop",
+                    "sky.geometric.dop",
                     "Geometric (hyperspherical) dilution of precision (dimensionless)",
                 ),
                 "hdop": (
-                    "sky_horizontal_dop",
+                    "sky.horizontal.dop",
                     "Horizontal dilution of precision (dimensionless)",
                 ),
                 "pdop": (
-                    "sky_position_dop",
+                    "sky.position.dop",
                     "Position (spherical/3D) dilution of precision (dimensionless)",
                 ),
-                "tdop": ("sky_time_dop", "Time dilution of precision (dimensionless)"),
+                "tdop": ("sky.time.dop", "Time dilution of precision (dimensionless)"),
                 "vdop": (
-                    "sky_vertical_dop",
+                    "sky.vertical.dop",
                     "Vertical (altitude) dilution of precision (dimensionless)",
                 ),
                 "xdop": (
-                    "sky_longitudinal_dop",
+                    "sky.longitudinal.dop",
                     "Longitudinal (X) dilution of precision (dimensionless)",
                 ),
                 "ydop": (
-                    "sky_latitudinal_dop",
+                    "sky.latitudinal.dop",
                     "Latitudinal (Y) dilution of precision (dimensionless)",
                 ),
             },
             "TPV": {
-                "_time": ("tpv_time_seconds", "GPS time"),
-                "alt": ("tpv_altitude_meters", "Altitude in meters"),
-                "climb": ("tpv_climb_mps", "Climb or sink rate, meters per second"),
+                "_time": ("tpv.time.seconds", "GPS time"),
+                "alt": ("tpv.altitude.meters", "Altitude in meters"),
+                "climb": ("tpv.climb.mps", "Climb or sink rate, meters per second"),
                 "epc": (
-                    "tpv_climb_error_mps",
+                    "tpv.climb.error.mps",
                     "Estimated climb error in meters per second",
                 ),
                 "eps": (
-                    "tpv_speed_error_mps",
+                    "tpv.speed.error.mps",
                     "Estimated speed error in meters per second",
                 ),
                 "ept": (
-                    "tpv_time_error_seconds",
+                    "tpv.time.error.seconds",
                     "Estimated timestamp error in seconds",
                 ),
                 "epv": (
-                    "tpv_vertical_error_meters",
+                    "tpv.vertical.error.meters",
                     "Estimated vertical error in meters",
                 ),
                 "epx": (
-                    "tpv_longitude_error_meters",
+                    "tpv.longitude.error.meters",
                     "Longitude error estimate in meters",
                 ),
                 "epy": (
-                    "tpv_latitude_error_meters",
+                    "tpv.latitude.error.meters",
                     "Latitude error estimate in meters",
                 ),
-                "mode": ("tpv_mode", "NMEA mode"),
-                "speed": ("tpv_speed_mps", "Speed over ground, meters per second"),
+                "mode": ("tpv.mode", "NMEA mode"),
+                "speed": ("tpv.speed.mps", "Speed over ground, meters per second"),
                 "track": (
-                    "tpv_course_degrees",
+                    "tpv.course.degrees",
                     "Course over ground, degrees from true north",
                 ),
             },
         }
         if self.config.get("collect_position", True):
             self.metrics_defs["TPV"]["lat"] = (
-                "tpv_latitude_degrees",
+                "tpv.latitude.degrees",
                 "Latitude in degrees",
             )
             self.metrics_defs["TPV"]["lon"] = (
-                "tpv_longitude_degrees",
+                "tpv.longitude.degrees",
                 "Longitude in degrees",
             )
+
+        self.create_instrument(
+            "counter", "messages", description="Total messages received"
+        )
+        for x in self.metrics_defs:
+            for y in self.metrics_defs[x]:
+                k, h = self.metrics_defs[x][y]
+                self.create_instrument("gauge", k, description=h)
 
     def process_message(self, buf):
         try:
@@ -130,39 +138,36 @@ class Metrics(BaseMetrics):
             return
         device = j.get("device", "")
         labels = {"device": device}
-        self.metric(
-            "messages_total",
-            {"device": device, "class": j["class"]},
-            "Total messages received",
-            data_type=Counter,
-        ).inc()
+        self.instruments["messages"].add(
+            1, {"device": device, "class": j["class"]}
+        )
         if j["class"] in self.metrics_defs:
             for k, g in self.metrics_defs[j["class"]].items():
                 if k not in j:
                     continue
-                self.metric(g[0], labels, g[1]).set(j[k])
+                self.instruments[g[0]].set(j[k], labels)
         if j["class"] == "PPS":
             m = self.metrics_defs["PPS"]["_clock"]
-            self.metric(m[0], labels, m[1]).set(
-                j["clock_sec"] + (j["clock_nsec"] / 1000000000)
+            self.instruments[m[0]].set(
+                j["clock_sec"] + (j["clock_nsec"] / 1000000000), labels
             )
             m = self.metrics_defs["PPS"]["_real"]
-            self.metric(m[0], labels, m[1]).set(
-                j["real_sec"] + (j["real_nsec"] / 1000000000)
+            self.instruments[m[0]].set(
+                j["real_sec"] + (j["real_nsec"] / 1000000000), labels
             )
         elif j["class"] == "SKY":
             m = self.metrics_defs["SKY"]["_unused_satellites"]
-            self.metric(m[0], labels, m[1]).set(
-                len([x["PRN"] for x in j["satellites"] if not x["used"]])
+            self.instruments[m[0]].set(
+                len([x["PRN"] for x in j["satellites"] if not x["used"]]), labels
             )
             m = self.metrics_defs["SKY"]["_used_satellites"]
-            self.metric(m[0], labels, m[1]).set(
-                len([x["PRN"] for x in j["satellites"] if x["used"]])
+            self.instruments[m[0]].set(
+                len([x["PRN"] for x in j["satellites"] if x["used"]]), labels
             )
         elif j["class"] == "TPV" and j.get("time"):
             m = self.metrics_defs["TPV"]["_time"]
-            self.metric(m[0], labels, m[1]).set(
-                dateutil.parser.parse(j["time"]).timestamp()
+            self.instruments[m[0]].set(
+                dateutil.parser.parse(j["time"]).timestamp(), labels
             )
 
     def main_loop_connection(self):
@@ -176,9 +181,6 @@ class Metrics(BaseMetrics):
         return data
 
     def main_loop(self):
-        if not self.args.http_daemon:
-            raise RuntimeError("Only --http-daemon is supported here")
-
         while True:
             try:
                 data = self.main_loop_connection()
@@ -192,11 +194,13 @@ class Metrics(BaseMetrics):
                 time.sleep(1)
                 continue
             try:
-                with self.collection_duration.time():
-                    self.process_message(data)
+                begin = time.time()
+                self.process_message(data)
+                end = time.time()
+                self.instruments["collection.duration"].record(end - begin)
             except Exception:
                 self.logger.exception("Encountered an error during collection")
-                self.collection_errors.inc()
+                self.instruments["collection.errors"].add(1)
 
 
 def main(argv=None):

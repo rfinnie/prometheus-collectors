@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
-# SPDX-FileComment: prometheus-things
+# SPDX-FileComment: bittorrent-collector-tracker
 # SPDX-FileCopyrightText: Copyright (C) 2021 Ryan Finnie
 # SPDX-License-Identifier: MPL-2.0
 
 import sys
-import prometheus_collectors.things
+import rf_collectors.bittorrent_tracker
 
 
 def module_init():
     if __name__ == "__main__":
-        sys.exit(prometheus_collectors.things.main(sys.argv))
+        sys.exit(rf_collectors.bittorrent_tracker.main(sys.argv))
 
 
 module_init()

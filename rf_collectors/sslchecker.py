@@ -1,4 +1,4 @@
-# SPDX-FileComment: prometheus-sslchecker
+# SPDX-FileComment: sslchecker-collector
 # SPDX-FileCopyrightText: Copyright (C) 2021 Ryan Finnie
 # SPDX-License-Identifier: MPL-2.0
 
@@ -38,6 +38,32 @@ class Metrics(BaseMetrics):
     full_check_complete = False
     spread_interval = 14400
 
+    def setup(self):
+        self.create_instrument(
+            "gauge",
+            "retrieval.success",
+            unit="boolean",
+            description="1 for successful retrieval, 0 for failure",
+        )
+        self.create_instrument(
+            "gauge",
+            "retrieval.time",
+            unit="seconds",
+            description="Last certificate retrieval time, seconds since epoch",
+        )
+        self.create_instrument(
+            "gauge",
+            "not.before",
+            unit="seconds",
+            description="Not Before time of certificate, seconds since epoch",
+        )
+        self.create_instrument(
+            "gauge",
+            "not.after",
+            unit="seconds",
+            description="Not After time of certificate, seconds since epoch",
+        )
+
     def collect_metrics(self):
         if self.full_check_complete:
             hosts = []
@@ -61,41 +87,18 @@ class Metrics(BaseMetrics):
                 res = self.check_host(host)
             except Exception:
                 self.logger.exception("Error on {}:{}".format(hostname, port))
-                self.metric(
-                    "retrieval_success_boolean",
-                    base_labels,
-                    "1 for successful retrieval, 0 for failure",
-                ).set(0)
+                self.instruments["retrieval.success"].set(0, base_labels)
                 continue
-            self.metric(
-                "retrieval_time_seconds",
-                base_labels,
-                "Last certificate retrieval time, seconds since epoch",
-            ).set(float(time.time()))
-            self.metric(
-                "retrieval_success_boolean",
-                base_labels,
-                "1 for successful retrieval, 0 for failure",
-            ).set(1)
+            self.instruments["retrieval.time"].set(float(time.time()), base_labels)
+            self.instruments["retrieval.success"].set(1, base_labels)
 
             labels = {**base_labels}
             for k, v in {"certificate_cn": res[3], "issuer_cn": res[4]}.items():
                 if k not in skip_labels:
                     labels[k] = v
 
-            self.metric("serial_number", labels, "Serial number of certificate").set(
-                res[0]
-            )
-            self.metric(
-                "not_before_seconds",
-                labels,
-                "Not Before time of certificate, seconds since epoch",
-            ).set(res[1].timestamp())
-            self.metric(
-                "not_after_seconds",
-                labels,
-                "Not After time of certificate, seconds since epoch",
-            ).set(res[2].timestamp())
+            self.instruments["not.before"].set(res[1].timestamp(), labels)
+            self.instruments["not.after"].set(res[2].timestamp(), labels)
 
         if not self.full_check_complete:
             self.full_check_complete = True

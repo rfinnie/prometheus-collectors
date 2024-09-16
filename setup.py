@@ -4,24 +4,23 @@ from setuptools import setup
 
 
 setup(
-    name="prometheus-collectors",
-    description="My personal collection of Prometheus collectors",
+    name="rf-collectors",
+    description="My personal collection of data collectors",
     author="Ryan Finnie",
     author_email="ryan@finnie.org",
     license="MPL-2.0",
-    packages=["prometheus_collectors"],
+    packages=["rf_collectors"],
     entry_points={
         "console_scripts": [
-            "prometheus-ambientweather = prometheus_collectors.ambientweather:main",
-            "prometheus-bittorrent-tracker = prometheus_collectors.bittorrent_tracker:main",
-            "prometheus-dump1090 = prometheus_collectors.dump1090:main",
-            "prometheus-finnix-mirrors = prometheus_collectors.finnix_mirrors:main",
-            "prometheus-gps = prometheus_collectors.gps:main",
-            "prometheus-livepatch = prometheus_collectors.livepatch:main",
-            "prometheus-sslchecker = prometheus_collectors.sslchecker:main",
-            "prometheus-sunpower = prometheus_collectors.sunpower:main",
-            "prometheus-things = prometheus_collectors.things:main",
-            "prometheus-ups = prometheus_collectors.ups:main",
+            "ambientweather-collector = rf_collectors.ambientweather:main",
+            "bittorrent-collector-tracker = rf_collectors.bittorrent_tracker:main",
+            "dump1090-collector = rf_collectors.dump1090:main",
+            "finnix-collector-mirrors = rf_collectors.finnix_mirrors:main",
+            "gps-collector = rf_collectors.gps:main",
+            "sslchecker-collector = rf_collectors.sslchecker:main",
+            "sunpower-collector = rf_collectors.sunpower:main",
+            "things-collector = rf_collectors.things:main",
+            "ups-collector = rf_collectors.ups:main",
         ]
     },
 )

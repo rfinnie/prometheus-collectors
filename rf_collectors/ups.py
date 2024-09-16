@@ -1,4 +1,4 @@
-# SPDX-FileComment: prometheus-ups
+# SPDX-FileComment: ups-collector
 # SPDX-FileCopyrightText: Copyright (C) 2021 Ryan Finnie
 # SPDX-License-Identifier: MPL-2.0
 
@@ -15,7 +15,6 @@ import sys
 
 import dateutil.parser
 import dateutil.tz
-from prometheus_client import Counter, Gauge
 
 from . import BaseMetrics
 
@@ -25,49 +24,41 @@ class Metrics(BaseMetrics):
     matches = {
         "LINEV": ("line", "volts"),
         "LOADPCT": ("load", "percent"),
-        "BCHARGE": ("battery_charge", "percent"),
-        "TIMELEFT": ("time_left", "seconds"),
-        "MBATTCHG": ("minimum_battery_charge", "percent"),
-        "MINTIMEL": ("minimum_time_left", "seconds"),
-        "MAXTIME": ("maximum_time", "seconds"),
-        "LOTRANS": ("low_transfer", "volts"),
-        "HITRANS": ("high_transfer", "volts"),
-        "ALARMDEL": ("alarm_delay", "seconds"),
+        "BCHARGE": ("battery.charge", "percent"),
+        "TIMELEFT": ("time.left", "seconds"),
+        "MBATTCHG": ("minimum.battery.charge", "percent"),
+        "MINTIMEL": ("minimum.time.left", "seconds"),
+        "MAXTIME": ("maximum.time", "seconds"),
+        "LOTRANS": ("low.transfer", "volts"),
+        "HITRANS": ("high.transfer", "volts"),
+        "ALARMDEL": ("alarm.delay", "seconds"),
         "BATTV": ("battery", "volts"),
-        "NUMXFERS": ("transfer_count", None),
-        "TONBATT": ("on_battery", "seconds"),
-        "CUMONBATT": ("cumulative_on_battery", "seconds"),
-        "NOMINV": ("nominal_input", "volts"),
-        "NOMBATTV": ("nominal_battery", "volts"),
-        "NOMPOWER": ("nominal_power", "watts"),
+        "NUMXFERS": ("transfer.count", ""),
+        "TONBATT": ("on.battery", "seconds"),
+        "CUMONBATT": ("cumulative.on.battery", "seconds"),
+        "NOMINV": ("nominal.input", "volts"),
+        "NOMBATTV": ("nominal.battery", "volts"),
+        "NOMPOWER": ("nominal.power", "watts"),
     }
 
     def setup(self):
-        label_names = ["model", "name", "serial"]
-        self.metrics = {}
-        self.metrics["device_time_seconds"] = Gauge(
-            "{}_device_time_seconds".format(self.prefix),
-            "UPS device check-in time",
-            label_names,
-            registry=self.registry,
+        self.create_instrument(
+            "gauge",
+            "device.time",
+            unit="seconds",
+            description="UPS device check-in time",
         )
-        self.metrics["reports_total"] = Counter(
-            "{}_reports_total".format(self.prefix),
-            "Total reports received",
-            label_names,
-            registry=self.registry,
+        self.create_instrument(
+            "counter", "reports", description="Total reports received"
         )
 
         for status_key in self.matches:
-            metric_base, metric_suffix = self.matches[status_key]
-            metric_name = metric_base
-            if metric_suffix:
-                metric_name = "{}_{}".format(metric_name, metric_suffix)
-            self.metrics[metric_name] = Gauge(
-                "{}_{}".format(self.prefix, metric_name),
-                "UPS {}".format(status_key),
-                label_names,
-                registry=self.registry,
+            metric_name, metric_unit = self.matches[status_key]
+            self.create_instrument(
+                "gauge",
+                metric_name,
+                unit=metric_unit,
+                description="UPS {}".format(status_key),
             )
 
         if "upses" not in self.config:
@@ -139,20 +130,14 @@ class Metrics(BaseMetrics):
                 fullname = "{}_{}".format(fullname, m_suffix)
             out[k] = v
 
-        labels = [kv["MODEL"], kv["UPSNAME"], kv["SERIALNO"]]
+        labels = {"model": kv["MODEL"], "name": kv["UPSNAME"], "serial": kv["SERIALNO"]}
         for k, v in out.items():
-            m_name, m_suffix = self.matches[k]
-            fullname = m_name
-            if m_suffix:
-                fullname = "{}_{}".format(fullname, m_suffix)
-            self.metrics[fullname].labels(*labels).set(v)
+            self.instruments[self.matches[k][0]].set(v, labels)
         apc_date = dateutil.parser.parse(kv["DATE"])
         if apc_date.tzinfo is None:
             apc_date = apc_date.astimezone(dateutil.tz.tzlocal())
-        self.metrics["device_time_seconds"].labels(*labels).set(
-            float(apc_date.strftime("%s"))
-        )
-        self.metrics["reports_total"].labels(*labels).inc()
+        self.instruments["device.time"].set(float(apc_date.strftime("%s")), labels)
+        self.instruments["reports"].add(1, labels)
 
 
 def main(argv=None):

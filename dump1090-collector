@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
-# SPDX-FileComment: prometheus-livepatch
+# SPDX-FileComment: dump1090-collector
 # SPDX-FileCopyrightText: Copyright (C) 2021 Ryan Finnie
 # SPDX-License-Identifier: MPL-2.0
 
 import sys
-import prometheus_collectors.livepatch
+import rf_collectors.dump1090
 
 
 def module_init():
     if __name__ == "__main__":
-        sys.exit(prometheus_collectors.livepatch.main(sys.argv))
+        sys.exit(rf_collectors.dump1090.main(sys.argv))
 
 
 module_init()
