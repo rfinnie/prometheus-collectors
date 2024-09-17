@@ -110,7 +110,7 @@ class BaseMetrics:
 
         self.pre_setup()
 
-        resource = Resource(attributes={SERVICE_NAME: "rf-otel-collectors"})
+        resource = Resource(attributes={SERVICE_NAME: "rf-collectors"})
         if self.config.get("exporter_type") == "http":
             self.exporter = OTLPMetricExporter_http(
                 endpoint=self.config["exporter_endpoint"]
