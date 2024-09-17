@@ -106,7 +106,7 @@ class Metrics(BaseMetrics):
     def check_host(self, host):
         hostname = host["hostname"]
         port = host["port"]
-        now = datetime.datetime.now()
+        now = datetime.datetime.now(datetime.timezone.utc)
         addr = socket.getaddrinfo(hostname, port)[0]
         sock = socket.socket(addr[0], addr[1], addr[2])
         sock.settimeout(10)
@@ -143,15 +143,15 @@ class Metrics(BaseMetrics):
                 sans = sorted([x.value for x in attribute.value])
         self.logger.debug(
             "{}:{} ({}) expires in {}".format(
-                hostname, port, subject_cn, (cert.not_valid_after - now)
+                hostname, port, subject_cn, (cert.not_valid_after_utc - now)
             )
         )
         self.logger.debug("    Issuer: {}".format(issuer_cn))
         self.logger.debug("    SANs: {}".format(sans))
         return (
             cert.serial_number,
-            cert.not_valid_before,
-            cert.not_valid_after,
+            cert.not_valid_before_utc,
+            cert.not_valid_after_utc,
             subject_cn,
             issuer_cn,
             sans,
