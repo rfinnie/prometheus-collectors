@@ -76,10 +76,6 @@ class Metrics(BaseMetrics):
         "yearlyrainin": ("yearly.rain.in", "outdoor"),
     }
 
-    def pre_setup(self):
-        if self.config.get("data_mode", "api") == "receiver":
-            self.needs_periodic_export = True
-
     def setup(self):
         for k in {x[0] for x in self.sensor_map.values()}:
             self.create_instrument("gauge", k)
@@ -151,6 +147,7 @@ class WSGIApplication:
             self.collector.instruments["collection.time"].set(
                 time.time(), {"site": site_name}
             )
+            self.collector.metric_reader.force_flush()
         start_response(
             "200 OK",
             [
