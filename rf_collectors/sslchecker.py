@@ -38,6 +38,9 @@ class Metrics(BaseMetrics):
     full_check_complete = False
     spread_interval = 14400
 
+    def __init__(self):
+        self.ssl_cache = {}
+
     def setup(self):
         self.create_instrument(
             "gauge",
@@ -82,26 +85,33 @@ class Metrics(BaseMetrics):
             if "port" not in host:
                 host["port"] = 443
             port = host["port"]
+            host_port = "{}:{}".format(host, port)
+            if host_port not in self.ssl_cache:
+                self.ssl_cache[host_port] = {}
             base_labels = {"server_hostname": hostname, "server_port": port}
             try:
                 res = self.check_host(host)
             except Exception:
                 self.logger.exception("Error on {}:{}".format(hostname, port))
-                self.instruments["retrieval.success"].set(0, base_labels)
+                self.ssl_cache[host_port]["retrieval.success"] = (0, base_labels)
                 continue
-            self.instruments["retrieval.time"].set(float(time.time()), base_labels)
-            self.instruments["retrieval.success"].set(1, base_labels)
+            self.ssl_cache[host_port]["retrieval.time"] = (float(time.time()), base_labels)
+            self.ssl_cache[host_port]["retrieval.success"] = (1, base_labels)
 
             labels = {**base_labels}
             for k, v in {"certificate_cn": res[3], "issuer_cn": res[4]}.items():
                 if k not in skip_labels:
                     labels[k] = v
 
-            self.instruments["not.before"].set(res[1].timestamp(), labels)
-            self.instruments["not.after"].set(res[2].timestamp(), labels)
+            self.ssl_cache[host_port]["not.before"] = (res[1].timestamp(), labels)
+            self.ssl_cache[host_port]["not.after"] = (res[2].timestamp(), labels)
 
         if not self.full_check_complete:
             self.full_check_complete = True
+
+        for host_port in self.ssl_cache:
+            for k in self.ssl_cache[host_port]:
+                self.instruments[k].set(*self.ssl_cache[host_port][k])
 
     def check_host(self, host):
         hostname = host["hostname"]
